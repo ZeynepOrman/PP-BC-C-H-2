@@ -1,72 +1,35 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
-using System.Linq;
-using FluentValidation;
-using FluentValidation.Results;
 using PP_BC_C_H_2.Attributes;
 using PP_BC_C_H_2.Entity;
+using PP_BC_C_H_2.Services;
 
 namespace PP_BC_C_H_2.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [FakeUser] // Add this line to use the custom attribute
     public class ProductsController : ControllerBase
     {
-        private static List<Product> Products = new List<Product>
-        {
-            new Product { Id = 1, Name = "Product1", Price = 10 },
-            new Product { Id = 2, Name = "Product2", Price = 20 }
-        };
+        private readonly IProductService _productService;
 
-        private readonly IValidator<Product> _validator;
-
-        public ProductsController(IValidator<Product> validator)
+        public ProductsController(IProductService productService)
         {
-            _validator = validator;
+            _productService = productService;
         }
 
         [HttpGet("list")]
+        [SessionAuthentication]
         public IActionResult List(string name = null, string sortBy = null, string sortOrder = "asc")
         {
-            var products = Products.AsQueryable();
 
-            // Filter by name
-            if (!string.IsNullOrEmpty(name))
-            {
-                products = products.Where(p => p.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
-            }
-
-            // Sort by specified field
-            if (!string.IsNullOrEmpty(sortBy))
-            {
-                if (sortOrder.Equals("desc", StringComparison.OrdinalIgnoreCase))
-                {
-                    products = sortBy switch
-                    {
-                        "name" => products.OrderByDescending(p => p.Name),
-                        "price" => products.OrderByDescending(p => p.Price),
-                        _ => products
-                    };
-                }
-                else
-                {
-                    products = sortBy switch
-                    {
-                        "name" => products.OrderBy(p => p.Name),
-                        "price" => products.OrderBy(p => p.Price),
-                        _ => products
-                    };
-                }
-            }
-
-            return Ok(new { status = 200, data = products.ToList() });
+            var products = _productService.List(name, sortBy, sortOrder);
+            return Ok(new { status = 200, data = products });
         }
 
         [HttpGet("{id}")]
+        [SessionAuthentication]
         public IActionResult GetById(int id)
         {
-            var product = Products.FirstOrDefault(p => p.Id == id);
+            var product = _productService.GetById(id);
             if (product == null)
                 return NotFound(new { status = 404, error = "Product not found" });
 
@@ -74,59 +37,67 @@ namespace PP_BC_C_H_2.Controllers
         }
 
         [HttpPost]
+        [SessionAuthentication]
         public IActionResult Create([FromBody] Product product)
         {
-            ValidationResult result = _validator.Validate(product);
-            if (!result.IsValid)
-                return BadRequest(new { status = 400, errors = result.Errors });
-
-            Products.Add(product);
-            return CreatedAtAction(nameof(GetById), new { id = product.Id }, new { status = 201, data = product });
+            try
+            {
+                var createdProduct = _productService.Create(product);
+                return CreatedAtAction(nameof(GetById), new { id = createdProduct.Id }, new { status = 201, data = createdProduct });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { status = 400, error = ex.Message });
+            }
         }
 
         [HttpPut("{id}")]
+        [SessionAuthentication]
         public IActionResult Update(int id, [FromBody] Product product)
         {
-            ValidationResult result = _validator.Validate(product);
-            if (!result.IsValid)
-                return BadRequest(new { status = 400, errors = result.Errors });
-
-            var existingProduct = Products.FirstOrDefault(p => p.Id == id);
-            if (existingProduct == null)
-                return NotFound(new { status = 404, error = "Product not found" });
-
-            existingProduct.Name = product.Name;
-            existingProduct.Price = product.Price;
-            return Ok(new { status = 200, data = existingProduct });
+            try
+            {
+                var updatedProduct = _productService.Update(id, product);
+                return Ok(new { status = 200, data = updatedProduct });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { status = 404, error = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { status = 400, error = ex.Message });
+            }
         }
 
         [HttpDelete("{id}")]
+        [SessionAuthentication]
         public IActionResult Delete(int id)
         {
-            var product = Products.FirstOrDefault(p => p.Id == id);
-            if (product == null)
-                return NotFound(new { status = 404, error = "Product not found" });
-
-            Products.Remove(product);
-            return NoContent();
+            try
+            {
+                _productService.Delete(id);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { status = 404, error = ex.Message });
+            }
         }
 
         [HttpPatch("{id}")]
+        [SessionAuthentication]
         public IActionResult Patch(int id, [FromBody] Product product)
         {
-            var existingProduct = Products.FirstOrDefault(p => p.Id == id);
-            if (existingProduct == null)
-                return NotFound(new { status = 404, error = "Product not found" });
-
-            if (!string.IsNullOrEmpty(product.Name))
-                existingProduct.Name = product.Name;
-
-            if (product.Price > 0)
-                existingProduct.Price = product.Price;
-
-            return Ok(new { status = 200, data = existingProduct });
+            try
+            {
+                var patchedProduct = _productService.Patch(id, product);
+                return Ok(new { status = 200, data = patchedProduct });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { status = 404, error = ex.Message });
+            }
         }
     }
-
-
 }

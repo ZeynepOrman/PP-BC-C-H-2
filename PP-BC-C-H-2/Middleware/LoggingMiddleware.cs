@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
+using log4net;
 
 namespace PP_BC_C_H_2.Middleware
 {
     public class LoggingMiddleware
     {
         private readonly RequestDelegate _next;
+        private static readonly ILog _logger = LogManager.GetLogger(typeof(LoggingMiddleware));
 
         public LoggingMiddleware(RequestDelegate next)
         {
@@ -15,12 +17,12 @@ namespace PP_BC_C_H_2.Middleware
         public async Task Invoke(HttpContext context)
         {
             // Log action entry
-            Console.WriteLine($"Action {context.Request.Path} started");
+            _logger.Info($"Action {context.Request.Path} started");
 
             await _next(context);
 
             // Log action exit
-            Console.WriteLine($"Action {context.Request.Path} completed");
+            _logger.Info($"Action {context.Request.Path} completed");
         }
     }
 }

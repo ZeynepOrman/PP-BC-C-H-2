@@ -3,12 +3,14 @@ using System;
 using System.Net;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using log4net;
 
 namespace PP_BC_C_H_2.Middleware
 {
     public class GlobalExceptionMiddleware
     {
         private readonly RequestDelegate _next;
+        private static readonly ILog Logger = LogManager.GetLogger(typeof(GlobalExceptionMiddleware));
 
         public GlobalExceptionMiddleware(RequestDelegate next)
         {
@@ -24,6 +26,7 @@ namespace PP_BC_C_H_2.Middleware
             catch (Exception ex)
             {
                 await HandleExceptionAsync(context, ex);
+                Logger.Error("An unhandled exception occurred.", ex);
             }
         }
 
